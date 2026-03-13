@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "libretro.h"
 #include "ps2_video.h"
@@ -14,7 +15,6 @@
 extern unsigned char smw_sfc_start[];
 extern unsigned char smw_sfc_end[];
 
-/* Nether: 1 para teste automatico, 0 para controle real */
 #define AUTO_INPUT_TEST 0
 
 static unsigned g_frame_count = 0;
@@ -76,25 +76,20 @@ static bool environ_cb(unsigned cmd, void *data)
 
 static void video_cb(const void *data, unsigned width, unsigned height, size_t pitch)
 {
+    char l1[32], l2[32], l3[32], l4[32];
+
     g_frame_count++;
+
+    if ((g_frame_count % 30) == 0 || g_frame_count == 1) {
+        snprintf(l1, sizeof(l1), "PAD=%04X", (unsigned)ps2_input_buttons());
+        snprintf(l2, sizeof(l2), "%ux%u", width, height);
+        snprintf(l3, sizeof(l3), "P=%u", (unsigned)pitch);
+        snprintf(l4, sizeof(l4), "FMT=%d", g_pixel_format);
+        ps2_video_set_debug(l1, l2, l3, l4);
+    }
 
     if (g_pixel_format == RETRO_PIXEL_FORMAT_RGB565)
         ps2_video_present_rgb565(data, width, height, pitch);
-
-    if ((g_frame_count % 60) == 0) {
-        scr_setXY(0, 18);
-        scr_printf("frm=%u            \n", g_frame_count);
-        scr_printf("inp=%u            \n", g_input_tick);
-        scr_printf("sz=%ux%u          \n", width, height);
-        scr_printf("pitch=%u          \n", (unsigned)pitch);
-        scr_printf("fmt=%d            \n", g_pixel_format);
-        scr_printf("pad=%04x          \n", (unsigned)ps2_input_buttons());
-#if AUTO_INPUT_TEST
-        scr_printf("input=AUTO        \n");
-#else
-        scr_printf("input=PAD         \n");
-#endif
-    }
 }
 
 static void audio_cb(int16_t left, int16_t right)
