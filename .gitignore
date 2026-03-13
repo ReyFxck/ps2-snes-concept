@@ -1,12 +1,7 @@
 *.o
-*.plg
 *.elf
-*.dat
-*.zip
-*~
-depend
-[Tt]humbs.db
-expsfc.*
-EXPSFC/
-*.so
+*.a
+*.map
 ps2boot/smw.sfc
+*~
+.DS_Store
