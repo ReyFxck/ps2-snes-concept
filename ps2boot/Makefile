@@ -41,7 +41,7 @@ CORE_SRCS = \
 	$(SRC_DIR)/spc700.c \
 	$(CORE_DIR)/libretro.c
 
-EE_OBJS = main.o ps2_video.o ps2_input.o ps2_menu.o ui/select_menu/select_menu.o ui/select_menu/select_menu_actions.o ui/select_menu/select_menu_render.o ui/select_menu/select_menu_pages.o ui/select_menu/font/select_menu_font.o ui/launcher/launcher.o ui/launcher/launcher_actions.o ui/launcher/launcher_render.o ui/launcher/launcher_pages.o ui/launcher/launcher_logo.o ui/launcher/launcher_logo_data.o ui/launcher/launcher_browser.o smw_blob.o $(CORE_SRCS:.c=.o)
+EE_OBJS = main.o ps2_video.o ps2_launcher_video.o ps2_input.o ps2_menu.o ui/select_menu/select_menu.o ui/select_menu/select_menu_actions.o ui/select_menu/select_menu_render.o ui/select_menu/select_menu_pages.o ui/select_menu/font/select_menu_font.o ui/launcher/launcher.o ui/launcher/launcher_actions.o ui/launcher/launcher_render.o ui/launcher/launcher_font.o ui/launcher/launcher_pages.o ui/launcher/launcher_logo.o ui/launcher/launcher_logo_data.o ui/launcher/launcher_browser.o smw_blob.o $(CORE_SRCS:.c=.o)
 
 EE_INCS += -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
 EE_CFLAGS += -O2 -G0 -DLOAD_FROM_MEMORY -DLAGFIX

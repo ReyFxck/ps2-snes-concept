@@ -327,6 +327,8 @@ int main(int argc, char *argv[])
 {
     struct retro_system_info info;
     struct retro_system_av_info av;
+    int saved_launcher_x;
+    int saved_launcher_y;
 
     (void)argc;
     (void)argv;
@@ -367,8 +369,11 @@ int main(int argc, char *argv[])
                info.block_extract,
                info.valid_extensions ? info.valid_extensions : "(null)");
 
+    ps2_video_get_offsets(&saved_launcher_x, &saved_launcher_y);
+    ps2_video_set_offsets(0, 0);
     scr_clear();
     run_launcher();
+    ps2_video_set_offsets(saved_launcher_x, saved_launcher_y);
 
     if (!load_selected_game())
         die("retro_load_game() falhou");

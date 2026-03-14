@@ -213,6 +213,7 @@ static void menu_tint_blue(void)
     }
 }
 
+static void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync);
 static void ps2_video_upload_and_draw(unsigned width, unsigned height, int wait_vsync)
 {
     qword_t *q;
@@ -309,7 +310,7 @@ void ps2_video_menu_begin_frame(void)
 
 void ps2_video_menu_end_frame(void)
 {
-    ps2_video_upload_and_draw(256, 224, 1);
+    ps2_video_upload_and_draw_bound(256, 224, 1);
 }
 
 void ps2_video_draw_menu(int page, int main_sel, int video_sel, int aspect_sel)
@@ -395,7 +396,7 @@ void ps2_video_draw_menu(int page, int main_sel, int video_sel, int aspect_sel)
         dbg_draw_string_color(8, 194, "SELECT CLOSE", white);
     }
 
-    ps2_video_upload_and_draw(256, 224, 1);
+    ps2_video_upload_and_draw_bound(256, 224, 1);
 }
 
 int ps2_video_init_once(void)
@@ -512,7 +513,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
     memcpy(g_frame_base, g_upload, sizeof(g_upload));
 
     dbg_overlay();
-    ps2_video_upload_and_draw(width, height, VIDEO_WAIT_VSYNC);
+    ps2_video_upload_and_draw_bound(width, height, VIDEO_WAIT_VSYNC);
 }
 
 uint16_t ps2_video_menu_get_pixel(unsigned x, unsigned y)
@@ -521,4 +522,184 @@ uint16_t ps2_video_menu_get_pixel(unsigned x, unsigned y)
         return 0;
 
     return g_upload[y * 256 + x];
+}
+
+/* launcher/ui target helpers */
+static uint16_t g_launcher_upload[PS2_LAUNCHER_HEIGHT][PS2_LAUNCHER_WIDTH];
+static int g_ui_target_launcher = 0;
+
+void ps2_video_ui_set_menu_target(void)
+{
+    g_ui_target_launcher = 0;
+}
+
+void ps2_video_ui_put_pixel(unsigned x, unsigned y, uint16_t color)
+{
+    if (g_ui_target_launcher) {
+        if (x >= PS2_LAUNCHER_WIDTH || y >= PS2_LAUNCHER_HEIGHT)
+            return;
+        g_launcher_upload[y][x] = color;
+        return;
+    }
+
+    if (x >= 256 || y >= 224)
+        return;
+
+    g_upload[y * 256 + x] = color;
+}
+
+uint16_t ps2_video_ui_get_pixel(unsigned x, unsigned y)
+{
+    if (g_ui_target_launcher) {
+        if (x >= PS2_LAUNCHER_WIDTH || y >= PS2_LAUNCHER_HEIGHT)
+            return 0;
+        return g_launcher_upload[y][x];
+    }
+
+    if (x >= 256 || y >= 224)
+        return 0;
+
+    return g_upload[y * 256 + x];
+}
+
+void ps2_video_launcher_begin_frame(uint16_t clear_color)
+{
+    unsigned y;
+    unsigned x;
+
+    g_ui_target_launcher = 1;
+
+    for (y = 0; y < PS2_LAUNCHER_HEIGHT; y++) {
+        for (x = 0; x < PS2_LAUNCHER_WIDTH; x++) {
+            g_launcher_upload[y][x] = clear_color;
+        }
+    }
+}
+
+void ps2_video_launcher_end_frame(void)
+{
+    ps2_video_present_rgb565(g_launcher_upload,
+                             PS2_LAUNCHER_WIDTH,
+                             PS2_LAUNCHER_HEIGHT,
+                             PS2_LAUNCHER_WIDTH * 2);
+
+    g_ui_target_launcher = 0;
+}
+
+uint32_t ps2_video_frame_address(void)
+{
+    return g_frame.address;
+}
+
+unsigned ps2_video_frame_width(void)
+{
+    return g_frame.width;
+}
+
+unsigned ps2_video_frame_height(void)
+{
+    return g_frame.height;
+}
+
+
+
+
+uint16_t ps2_video_convert_rgb565(uint16_t color)
+{
+    return g_rgb565_lut[color];
+}
+
+static void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync)
+{
+    qword_t *q;
+    texrect_t rect;
+    float x0, y0, x1, y1;
+    lod_t lod;
+    clutbuffer_t clut;
+
+    dma_wait_fast();
+
+    q = g_tex_packet->data;
+    q = draw_texture_transfer(q, g_upload, 256, 224, GS_PSM_16, g_tex.address, g_tex.width);
+    q = draw_texture_flush(q);
+    dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
+    dma_wait_fast();
+
+    switch (g_aspect_mode) {
+        case PS2_ASPECT_16_9:
+            x0 = 0.0f;
+            y0 = 44.0f;
+            x1 = 640.0f;
+            y1 = 404.0f;
+            break;
+
+        case PS2_ASPECT_FULL:
+            x0 = 0.0f;
+            y0 = 0.0f;
+            x1 = 640.0f;
+            y1 = 448.0f;
+            break;
+
+        case PS2_ASPECT_PIXEL:
+            x0 = 96.0f;
+            y0 = 28.0f;
+            x1 = 544.0f;
+            y1 = 420.0f;
+            break;
+
+        case PS2_ASPECT_4_3:
+        default:
+            x0 = 64.0f;
+            y0 = 0.0f;
+            x1 = 576.0f;
+            y1 = 448.0f;
+            break;
+    }
+
+    memset(&rect, 0, sizeof(rect));
+
+    rect.v0.x = x0;
+    rect.v0.y = y0;
+    rect.v0.z = 0;
+
+    rect.v1.x = x1;
+    rect.v1.y = y1;
+    rect.v1.z = 0;
+
+    rect.t0.u = 0.0f;
+    rect.t0.v = 0.0f;
+    rect.t1.u = (float)width - 1.0f;
+    rect.t1.v = (float)height - 1.0f;
+
+    rect.color.r = 0x80;
+    rect.color.g = 0x80;
+    rect.color.b = 0x80;
+    rect.color.a = 0x80;
+    rect.color.q = 1.0f;
+
+    memset(&lod, 0, sizeof(lod));
+    lod.calculation = LOD_USE_K;
+    lod.max_level = 0;
+    lod.mag_filter = LOD_MAG_NEAREST;
+    lod.min_filter = LOD_MIN_NEAREST;
+    lod.l = 0;
+    lod.k = 0.0f;
+
+    memset(&clut, 0, sizeof(clut));
+    clut.storage_mode = CLUT_STORAGE_MODE1;
+    clut.load_method = CLUT_NO_LOAD;
+
+    q = g_draw_packet->data;
+    q = draw_setup_environment(q, 0, &g_frame, &g_z);
+    q = draw_texture_sampling(q, 0, &lod);
+    q = draw_texturebuffer(q, 0, &g_tex, &clut);
+    q = draw_clear(q, 0, 0.0f, 0.0f, (float)g_frame.width, (float)g_frame.height, 0, 0, 0);
+    q = draw_rect_textured(q, 0, &rect);
+    q = draw_finish(q);
+
+    dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
+    draw_wait_finish();
+
+    if (wait_vsync)
+        graph_wait_vsync();
 }

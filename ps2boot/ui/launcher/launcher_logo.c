@@ -1,7 +1,7 @@
 #include "launcher_logo.h"
 
 #include <stdint.h>
-#include "../../ps2_video.h"
+#include "../../ps2_launcher_video.h"
 
 extern unsigned char launcher_logo_rgba[];
 
@@ -26,8 +26,9 @@ void launcher_logo_draw(int dst_x, int dst_y)
             if (sa < 128)
                 continue;
 
-            ps2_video_menu_put_pixel((unsigned)(dst_x + x), (unsigned)(dst_y + y),
-                                     pack_rgb565(sr, sg, sb));
+            ps2_launcher_video_put_pixel((unsigned)(dst_x + x),
+                                         (unsigned)(dst_y + y),
+                                         pack_rgb565(sr, sg, sb));
         }
     }
 }
