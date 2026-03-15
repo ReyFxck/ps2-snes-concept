@@ -52,3 +52,18 @@ EXTRA_TARGETS = $(EE_BIN)
 PS2SDK = $(PS2DEV)/ps2sdk
 include $(PS2SDK)/samples/Makefile.pref
 include $(PS2SDK)/samples/Makefile.eeglobal
+
+
+
+ROM_LOADER_OBJS = \
+	rom_loader/rom_loader.o \
+	rom_loader/rom_zip.o \
+	rom_loader/miniz/miniz.o \
+	rom_loader/miniz/miniz_tdef.o \
+	rom_loader/miniz/miniz_tinfl.o \
+	rom_loader/miniz/miniz_zip.o
+
+EE_OBJS += $(ROM_LOADER_OBJS)
+EE_CFLAGS += -I. -Irom_loader -Irom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
+
+$(EE_BIN): $(ROM_LOADER_OBJS)

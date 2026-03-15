@@ -1,3 +1,4 @@
+#include "rom_loader/rom_loader.h"
 #include <kernel.h>
 #include <sifrpc.h>
 #include <debug.h>
@@ -29,6 +30,7 @@ static clock_t g_frame_deadline = 0;
 
 static void *g_loaded_rom_data = NULL;
 static size_t g_loaded_rom_size = 0;
+static char g_loaded_rom_name[256];
 
 static void die(const char *msg)
 {
@@ -217,7 +219,7 @@ static int16_t input_state_cb(unsigned port, unsigned device, unsigned index, un
     return ps2_input_libretro_state(id);
 }
 
-static int load_file_to_memory(const char *path, void **out_data, size_t *out_size)
+static __attribute__((unused)) int load_file_to_memory(const char *path, void **out_data, size_t *out_size)
 {
     FILE *fp;
     long file_size;
@@ -279,15 +281,16 @@ static int load_selected_game(void)
 
     if (path && path[0]) {
         if (g_loaded_rom_data) {
-            free(g_loaded_rom_data);
+            rom_loader_free(&g_loaded_rom_data, &g_loaded_rom_size);
+                    g_loaded_rom_name[0] = '\0';
             g_loaded_rom_data = NULL;
             g_loaded_rom_size = 0;
         }
 
-        if (!load_file_to_memory(path, &g_loaded_rom_data, &g_loaded_rom_size))
+        if (!rom_loader_load(path, &g_loaded_rom_data, &g_loaded_rom_size, g_loaded_rom_name, sizeof(g_loaded_rom_name)))
             return 0;
 
-        game.path = path;
+        game.path = g_loaded_rom_name[0] ? g_loaded_rom_name : path;
         game.data = g_loaded_rom_data;
         game.size = g_loaded_rom_size;
         game.meta = NULL;
@@ -297,6 +300,7 @@ static int load_selected_game(void)
         return retro_load_game(&game) ? 1 : 0;
     }
 
+    g_loaded_rom_name[0] = '\0';
     game.path = "smw.sfc";
     game.data = smw_sfc_start;
     game.size = (size_t)(smw_sfc_end - smw_sfc_start);
@@ -412,7 +416,8 @@ int main(int argc, char *argv[])
                 ps2_menu_close();
                 retro_unload_game();
                 if (g_loaded_rom_data) {
-                    free(g_loaded_rom_data);
+                    rom_loader_free(&g_loaded_rom_data, &g_loaded_rom_size);
+                    g_loaded_rom_name[0] = '\0';
                     g_loaded_rom_data = NULL;
                     g_loaded_rom_size = 0;
                 }
@@ -439,7 +444,8 @@ int main(int argc, char *argv[])
                 ps2_menu_close();
                 retro_unload_game();
                 if (g_loaded_rom_data) {
-                    free(g_loaded_rom_data);
+                    rom_loader_free(&g_loaded_rom_data, &g_loaded_rom_size);
+                    g_loaded_rom_name[0] = '\0';
                     g_loaded_rom_data = NULL;
                     g_loaded_rom_size = 0;
                 }
